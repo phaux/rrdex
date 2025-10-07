@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@custom-variant current-page (&[aria-current="page"]);
+
+button {
+  cursor: pointer;
+}
