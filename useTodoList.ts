@@ -1,10 +1,10 @@
+import { useSuspendingLiveQuery } from "dexie-react-hooks";
 import { db, type Todo } from "./db";
-import { useSuspendingLiveQuery } from "./useSuspendingLiveQuery";
 
 export function useTodoList(
   boardId: number,
   sortBy: string,
-  filterDone: string | null
+  filterDone: string | null,
 ) {
   return useSuspendingLiveQuery(() => {
     if (!boardId) return [];

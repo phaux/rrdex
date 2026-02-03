@@ -1,12 +1,12 @@
-import { FlipList } from "react-simple-flip";
+import { useSuspendingLiveQuery } from "dexie-react-hooks";
 import { Link, NavLink } from "react-router";
+import { FlipList } from "react-simple-flip";
 import { db, type Board } from "./db";
-import { useSuspendingLiveQuery } from "./useSuspendingLiveQuery";
 
 export function AppSidebar() {
   const boards = useSuspendingLiveQuery(
     () => db.boards.orderBy("createdAt").reverse().toArray(),
-    ["boards"]
+    ["boards"],
   );
 
   return (

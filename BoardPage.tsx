@@ -1,11 +1,11 @@
-import { useParams, useSearchParams, useNavigate } from "react-router";
-import { useSuspendingLiveQuery } from "./useSuspendingLiveQuery";
+import { useSuspendingLiveQuery } from "dexie-react-hooks";
+import { useNavigate, useParams, useSearchParams } from "react-router";
+import { FlipList } from "react-simple-flip";
 import { db, type Todo } from "./db";
-import { useTodoList, toggleTodo, deleteTodo } from "./useTodoList";
+import { TodoFilters } from "./TodoFilters";
 import { TodoForm } from "./TodoForm";
 import { TodoItem } from "./TodoItem";
-import { TodoFilters } from "./TodoFilters";
-import { FlipList } from "react-simple-flip";
+import { deleteTodo, toggleTodo, useTodoList } from "./useTodoList";
 
 export function BoardPage() {
   const { boardId } = useParams<{ boardId: string }>();
@@ -18,7 +18,7 @@ export function BoardPage() {
 
   const board = useSuspendingLiveQuery(
     () => db.boards.get(boardIdNum),
-    ["boards", boardIdNum]
+    ["boards", boardIdNum],
   );
   const todos = useTodoList(boardIdNum, sortBy, filterDone);
 
