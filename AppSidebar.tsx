@@ -1,12 +1,14 @@
 import { useSuspendingLiveQuery } from "dexie-react-hooks";
+import { useDeferredValue, ViewTransition } from "react";
 import { Link, NavLink } from "react-router";
-import { FlipList } from "react-simple-flip";
 import { db, type Board } from "./db";
 
 export function AppSidebar() {
-  const boards = useSuspendingLiveQuery(
-    () => db.boards.orderBy("createdAt").reverse().toArray(),
-    ["boards"],
+  const boards = useDeferredValue(
+    useSuspendingLiveQuery(
+      () => db.boards.orderBy("createdAt").reverse().toArray(),
+      ["boards"],
+    ),
   );
 
   return (
@@ -14,9 +16,9 @@ export function AppSidebar() {
       <h1 className="text-xl font-bold mb-6">Boards</h1>
       <nav className="flex-1 overflow-y-auto">
         <ul className="space-y-2">
-          <FlipList staggerDelay={16}>
-            {boards?.map((board: Board) => (
-              <li key={board.id}>
+          {boards?.map((board: Board) => (
+            <ViewTransition key={board.id}>
+              <li>
                 <NavLink
                   to={`/boards/${board.id}`}
                   className="block px-3 py-2 rounded hover:bg-zinc-700 transition-colors current-page:bg-zinc-700"
@@ -24,8 +26,8 @@ export function AppSidebar() {
                   {board.name}
                 </NavLink>
               </li>
-            ))}
-          </FlipList>
+            </ViewTransition>
+          ))}
         </ul>
       </nav>
       <Link

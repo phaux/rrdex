@@ -1,6 +1,6 @@
 import { useSuspendingLiveQuery } from "dexie-react-hooks";
+import { useDeferredValue, ViewTransition } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { FlipList } from "react-simple-flip";
 import { db, type Todo } from "./db";
 import { TodoFilters } from "./TodoFilters";
 import { TodoForm } from "./TodoForm";
@@ -16,9 +16,11 @@ export function BoardPage() {
   const filterDone = searchParams.get("filter");
   const boardIdNum = Number(boardId);
 
-  const board = useSuspendingLiveQuery(
-    () => db.boards.get(boardIdNum),
-    ["boards", boardIdNum],
+  const board = useDeferredValue(
+    useSuspendingLiveQuery(
+      () => db.boards.get(boardIdNum),
+      ["boards", boardIdNum],
+    ),
   );
   const todos = useTodoList(boardIdNum, sortBy, filterDone);
 
@@ -83,16 +85,15 @@ export function BoardPage() {
               No todos yet. Add one above!
             </p>
           ) : (
-            <FlipList staggerDelay={33}>
-              {todos?.map((todo: Todo) => (
+            todos?.map((todo: Todo) => (
+              <ViewTransition key={todo.id}>
                 <TodoItem
-                  key={todo.id}
                   todo={todo}
                   onToggle={handleToggle}
                   onDelete={handleDelete}
                 />
-              ))}
-            </FlipList>
+              </ViewTransition>
+            ))
           )}
         </div>
 

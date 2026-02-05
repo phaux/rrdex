@@ -11,10 +11,9 @@
   "dependencies": {
     "dexie": "^4.2.0",
     "dexie-react-hooks": "^4.2.1-beta.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-router": "^7.9.3",
-    "react-simple-flip": "^1.0.0"
+    "react": "^19.3.0-canary-3e00319b-20260203",
+    "react-dom": "^19.3.0-canary-3e00319b-20260203",
+    "react-router": "^7.9.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",

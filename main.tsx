@@ -1,3 +1,4 @@
+/// <reference types="react/canary" />
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -13,7 +14,7 @@ import { ErrorPage } from "./ErrorPage";
 
 const remountOnParamsChange = <T extends object>(
   Component: React.ComponentType<T>,
-  keys: readonly string[]
+  keys: readonly string[],
 ) => {
   return function RemountOnParamsChange(props: T) {
     const params = useParams();
@@ -55,5 +56,5 @@ function AppLayout() {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RouterProvider router={router} />
-  </StrictMode>
+  </StrictMode>,
 );

@@ -1,4 +1,5 @@
 import { useSuspendingLiveQuery } from "dexie-react-hooks";
+import { useDeferredValue } from "react";
 import { db, type Todo } from "./db";
 
 export function useTodoList(
@@ -6,7 +7,7 @@ export function useTodoList(
   sortBy: string,
   filterDone: string | null,
 ) {
-  return useSuspendingLiveQuery(() => {
+  const todos = useSuspendingLiveQuery(() => {
     if (!boardId) return [];
 
     let query;
@@ -48,6 +49,8 @@ export function useTodoList(
 
     return query.toArray();
   }, ["todos", boardId, sortBy, filterDone]);
+
+  return useDeferredValue(todos);
 }
 
 export async function addTodo(boardId: number, title: string) {
