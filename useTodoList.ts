@@ -1,6 +1,6 @@
-import { useSuspendingLiveQuery } from "dexie-react-hooks";
 import { useDeferredValue } from "react";
 import { db, type Todo } from "./db";
+import { useSuspendingLiveQuery } from "./useSuspendingLiveQuery";
 
 export function useTodoList(
   boardId: number,

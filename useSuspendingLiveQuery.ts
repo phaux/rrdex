@@ -1,0 +1,136 @@
+import { Dexie, Observer, Subscribable, Subscription } from "dexie";
+import { use, useEffect, useReducer, useRef, useState } from "react";
+
+const observableCache = new Map<React.DependencyList, Subscribable<any>>();
+const promiseCache = new Map<Subscribable<any>, Promise<any>>();
+const valueCache = new Map<Subscribable<any>, any>();
+
+/**
+ * Observe IndexedDB data in your React component.
+ * Make the component re-render when the observed data changes.
+ * Suspends until first value is available.
+ * Cache key must be globally unique.
+ */
+export function useSuspendingLiveQuery<T>(
+  querier: () => Promise<T> | T,
+  cacheKey: React.DependencyList,
+): T {
+  let observable: Subscribable<T> | undefined;
+
+  // Try to find an existing observable for this cache key
+  for (const [key, value] of observableCache) {
+    if (
+      key.length === cacheKey.length &&
+      key.every((k, i) => k === cacheKey[i])
+    ) {
+      observable = value;
+      break;
+    }
+  }
+
+  // If no observable was found, create a new one
+  if (!observable) {
+    // Create a multicast observable which subscribes to source at most once.
+    const source = Dexie.liveQuery(querier);
+    let subscription: Subscription | undefined;
+    const observers = new Set<Observer<T>>();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    observable = {
+      subscribe: (observer) => {
+        observers.add(observer);
+        // Cancel the cleanup timer if it's running
+        if (timeout) {
+          clearTimeout(timeout);
+          timeout = undefined;
+        }
+        // If this is the first subscriber, subscribe to the source observable
+        if (!subscription) {
+          subscription = source.subscribe({
+            next: (val) => {
+              valueCache.set(observable!, val);
+              for (const obs of observers) obs.next?.(val);
+            },
+            error: (err) => {
+              for (const obs of observers) obs.error?.(err);
+            },
+            complete: () => {
+              for (const obs of observers) obs.complete?.();
+            },
+          });
+        }
+        // Otherwise, emit the current value to the new subscriber if any
+        else if (valueCache.has(observable!)) {
+          observer.next?.(valueCache.get(observable!)!);
+        }
+        // Return the unsubscriber
+        return {
+          unsubscribe: () => {
+            if (!observers.has(observer)) return;
+            observers.delete(observer);
+            // If this was the last subscriber, schedule cleanup
+            if (observers.size === 0) {
+              timeout = setTimeout(() => {
+                // Unsubscribe source
+                subscription?.unsubscribe();
+                subscription = undefined;
+                // Clean caches
+                valueCache.delete(observable!);
+                promiseCache.delete(observable!);
+                for (const [key, value] of observableCache) {
+                  if (value === observable) {
+                    observableCache.delete(key);
+                    break;
+                  }
+                }
+              }, 3000);
+            }
+          },
+        };
+      },
+    };
+    observableCache.set(cacheKey, observable);
+  }
+
+  // Get or initialize promise for first value
+  let promise = promiseCache.get(observable);
+  if (!promise) {
+    promise = new Promise<T>((resolve, reject) => {
+      const subscription = observable.subscribe({
+        next: (val) => {
+          resolve(val);
+          // Unsubscribe in next tick because subscription might not be assigned yet
+          queueMicrotask(() => subscription.unsubscribe());
+        },
+        error: (err) => reject(err),
+      });
+    });
+    promiseCache.set(observable, promise);
+  }
+
+  const initialValue = use(promise);
+
+  const value = useRef<T>(initialValue);
+  const [error, setError] = useState<unknown>();
+  const rerender = useReducer((x) => x + 1, 0)[1];
+
+  // Set the value immediately on every render.
+  // This avoids waiting for effect to run.
+  value.current = valueCache.get(observable);
+
+  // Subscribe to live updates until the source observable changes.
+  useEffect(() => {
+    const subscription = observable.subscribe({
+      next: (val) => {
+        if (val !== value.current) {
+          value.current = val;
+          rerender();
+        }
+      },
+      error: (err) => setError(err),
+    });
+    return () => subscription.unsubscribe();
+  }, [observable]);
+
+  if (error) throw error;
+  return value.current;
+}

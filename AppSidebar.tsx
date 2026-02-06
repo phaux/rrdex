@@ -1,7 +1,7 @@
-import { useSuspendingLiveQuery } from "dexie-react-hooks";
 import { useDeferredValue, useState, ViewTransition } from "react";
 import { Link, NavLink } from "react-router";
 import { db, type Board } from "./db";
+import { useSuspendingLiveQuery } from "./useSuspendingLiveQuery";
 
 export function AppSidebar() {
   const [sortBy, setSortBy] = useState("createdAt");
