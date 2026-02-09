@@ -1,18 +1,38 @@
-import { Dexie, Observer, Subscribable, Subscription } from "dexie";
-import { use, useEffect, useReducer, useRef, useState } from "react";
-
-const observableCache = new Map<React.DependencyList, Subscribable<any>>();
-const promiseCache = new Map<Subscribable<any>, Promise<any>>();
-const valueCache = new Map<Subscribable<any>, any>();
+import { Dexie, Observer, Subscribable, Unsubscribable } from "dexie";
+import * as React from "react";
 
 /**
- * Observe IndexedDB data in your React component.
- * Make the component re-render when the observed data changes.
+ * Observe IndexedDB data in your React component. Make the component re-render when the observed data changes.
+ *
  * Suspends until first value is available.
+ *
  * Cache key must be globally unique.
  */
 export function useSuspendingLiveQuery<T>(
   querier: () => Promise<T> | T,
+  cacheKey: React.DependencyList,
+): T {
+  return useSuspendingObservable(
+    () => Dexie.liveQuery(querier),
+    ["dexie", ...cacheKey],
+  );
+}
+
+const observableCache = new Map<React.DependencyList, Subscribable<any>>();
+const promiseCache = new WeakMap<Subscribable<any>, Promise<any>>();
+const valueCache = new WeakMap<Subscribable<any>, any>();
+
+const CLEANUP_DELAY = 3000; // Time to wait before cleaning up unused observables
+
+/**
+ * Subscribes to an observable and returns the latest value.
+ * Suspends until the first value is received.
+ *
+ * Calls with the same cache key will reuse the same observable.
+ * Cache key must be globally unique.
+ */
+export function useSuspendingObservable<T>(
+  getObservable: (() => Subscribable<T>) | Subscribable<T>,
   cacheKey: React.DependencyList,
 ): T {
   let observable: Subscribable<T> | undefined;
@@ -21,7 +41,7 @@ export function useSuspendingLiveQuery<T>(
   for (const [key, value] of observableCache) {
     if (
       key.length === cacheKey.length &&
-      key.every((k, i) => k === cacheKey[i])
+      key.every((k, i) => Object.is(k, cacheKey[i]))
     ) {
       observable = value;
       break;
@@ -31,11 +51,12 @@ export function useSuspendingLiveQuery<T>(
   // If no observable was found, create a new one
   if (!observable) {
     // Create a multicast observable which subscribes to source at most once.
-    const source = Dexie.liveQuery(querier);
-    let subscription: Subscription | undefined;
+    const source =
+      typeof getObservable === "function" ? getObservable() : getObservable;
+    let subscription: Unsubscribable | undefined;
     const observers = new Set<Observer<T>>();
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    observable = {
+    const newObservable: Subscribable<T> = {
       subscribe: (observer) => {
         observers.add(observer);
         // Cancel the cleanup timer if it's running
@@ -47,20 +68,25 @@ export function useSuspendingLiveQuery<T>(
         if (!subscription) {
           subscription = source.subscribe({
             next: (val) => {
-              valueCache.set(observable!, val);
-              for (const obs of observers) obs.next?.(val);
+              valueCache.set(newObservable, val);
+              // Clone observers in case the list changes during emission
+              for (const obs of new Set(observers)) obs.next?.(val);
             },
             error: (err) => {
-              for (const obs of observers) obs.error?.(err);
+              const lastObservers = new Set(observers);
+              handleFinalize();
+              for (const obs of lastObservers) obs.error?.(err);
             },
             complete: () => {
-              for (const obs of observers) obs.complete?.();
+              const lastObservers = new Set(observers);
+              handleFinalize();
+              for (const obs of lastObservers) obs.complete?.();
             },
           });
         }
         // Otherwise, emit the current value to the new subscriber if any
-        else if (valueCache.has(observable!)) {
-          observer.next?.(valueCache.get(observable!)!);
+        else if (valueCache.has(newObservable)) {
+          observer.next?.(valueCache.get(newObservable)!);
         }
         // Return the unsubscriber
         return {
@@ -68,27 +94,36 @@ export function useSuspendingLiveQuery<T>(
             if (!observers.has(observer)) return;
             observers.delete(observer);
             // If this was the last subscriber, schedule cleanup
-            if (observers.size === 0) {
-              timeout = setTimeout(() => {
-                // Unsubscribe source
-                subscription?.unsubscribe();
-                subscription = undefined;
-                // Clean caches
-                valueCache.delete(observable!);
-                promiseCache.delete(observable!);
-                for (const [key, value] of observableCache) {
-                  if (value === observable) {
-                    observableCache.delete(key);
-                    break;
-                  }
-                }
-              }, 3000);
-            }
+            if (observers.size === 0) scheduleCleanup();
           },
         };
+        function handleFinalize() {
+          // Reset this observable to the initial state
+          subscription = undefined;
+          observers.clear();
+          valueCache.delete(newObservable);
+          promiseCache.delete(newObservable);
+          // Schedule cleanup in case nobody subscribes again
+          scheduleCleanup();
+        }
+        function scheduleCleanup() {
+          timeout = setTimeout(() => {
+            // Unsubscribe source if any
+            subscription?.unsubscribe();
+            subscription = undefined;
+            // Remove this observable from cache
+            for (const [key, value] of observableCache) {
+              if (value === observable) {
+                observableCache.delete(key);
+                break;
+              }
+            }
+          }, CLEANUP_DELAY);
+        }
       },
     };
-    observableCache.set(cacheKey, observable);
+    observable = newObservable;
+    observableCache.set(cacheKey, newObservable);
   }
 
   // Get or initialize promise for first value
@@ -107,21 +142,23 @@ export function useSuspendingLiveQuery<T>(
     promiseCache.set(observable, promise);
   }
 
-  const initialValue = use(promise);
+  const initialValue = React.use(promise);
 
-  const value = useRef<T>(initialValue);
-  const [error, setError] = useState<unknown>();
-  const rerender = useReducer((x) => x + 1, 0)[1];
+  const value = React.useRef<T>(initialValue);
+  const [error, setError] = React.useState<unknown>();
+  const rerender = React.useReducer((x) => x + 1, 0)[1];
 
   // Set the value immediately on every render.
   // This avoids waiting for effect to run.
-  value.current = valueCache.get(observable);
+  value.current = valueCache.has(observable)
+    ? valueCache.get(observable)!
+    : initialValue;
 
   // Subscribe to live updates until the source observable changes.
-  useEffect(() => {
+  React.useEffect(() => {
     const subscription = observable.subscribe({
       next: (val) => {
-        if (val !== value.current) {
+        if (!Object.is(val, value.current)) {
           value.current = val;
           rerender();
         }
