@@ -2,6 +2,27 @@
 
 @custom-variant current-page (&[aria-current="page"]);
 
+::view-transition-new(.from-left-to-right) {
+  animation-name: from-left;
+}
+::view-transition-old(.from-left-to-right) {
+  animation-name: to-right;
+}
+
+@keyframes from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+}
+
+@keyframes to-right {
+  to {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+
 button {
   cursor: pointer;
 }

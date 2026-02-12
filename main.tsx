@@ -1,5 +1,5 @@
 /// <reference types="react/canary" />
-import { StrictMode, ViewTransition } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router";
 import { AppSidebar } from "./AppSidebar";
@@ -29,9 +29,7 @@ function AppLayout() {
   return (
     <div className="flex h-screen accent-blue-600">
       <AppSidebar />
-      <ViewTransition>
-        <Outlet />
-      </ViewTransition>
+      <Outlet />
     </div>
   );
 }
