@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "dexie": "^4.2.0",
-    "dexie-react-hooks": "^4.2.1-beta.1",
-    "react": "^19.3.0-canary-3e00319b-20260203",
-    "react-dom": "^19.3.0-canary-3e00319b-20260203",
+    "dexie-react-hooks": "^4.2.2-beta.2",
+    "react": "^19.3.0-canary-272441a9-20260209",
+    "react-dom": "^19.3.0-canary-272441a9-20260209",
     "react-router": "^7.9.3"
   },
   "devDependencies": {
