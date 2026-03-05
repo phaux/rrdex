@@ -6,8 +6,8 @@ export function CreateBoardPage() {
   const [name, setName] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (ev: SubmitEvent<HTMLFormElement>) => {
+    ev.preventDefault();
     if (!name.trim()) return;
 
     const id = await db.boards.add({
@@ -40,7 +40,7 @@ export function CreateBoardPage() {
                 id="boardName"
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(ev) => setName(ev.target.value)}
                 placeholder="e.g., Shopping, Work Tasks..."
                 className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus

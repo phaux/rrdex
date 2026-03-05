@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { SubmitEvent, useState } from "react";
 import { addTodo } from "./useTodoList";
 
 interface TodoFormProps {
@@ -9,8 +9,8 @@ interface TodoFormProps {
 export function TodoForm({ boardId, onAdd }: TodoFormProps) {
   const [newTodoTitle, setNewTodoTitle] = useState("");
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (ev: SubmitEvent) => {
+    ev.preventDefault();
     if (!newTodoTitle.trim()) return;
 
     await addTodo(boardId, newTodoTitle);
@@ -24,7 +24,7 @@ export function TodoForm({ boardId, onAdd }: TodoFormProps) {
         <input
           type="text"
           value={newTodoTitle}
-          onChange={(e) => setNewTodoTitle(e.target.value)}
+          onChange={(ev) => setNewTodoTitle(ev.target.value)}
           placeholder="Add a new todo..."
           className="min-w-16 flex-1 px-4 py-2 bg-zinc-800 border border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
